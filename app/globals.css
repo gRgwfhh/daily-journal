@@ -1,8 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #172033;
+  --card-background: rgba(255, 255, 255, 0.9);
+  --card-border: #dbe3ef;
+  --muted: #526078;
+  --tag-bg: #eef2ff;
+  --tag-text: #384d89;
+  --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
 @theme inline {
@@ -12,15 +18,781 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
+  min-height: 100vh;
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+input[type="checkbox"] {
+  accent-color: #2563eb;
+}
+
+.dashboard-page {
+  display: block;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 40px 24px;
+  background: linear-gradient(180deg, #f3f5fb 0%, #eef2ff 100%);
+  color: var(--foreground);
+}
+
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  width: min(1100px, 100%);
+  margin: 0 auto;
+}
+
+.card {
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  background: var(--card-background);
+  box-shadow: var(--shadow);
+}
+
+.dashboard-heading {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.dashboard-heading h1 {
+  margin: 4px 0;
+  color: var(--foreground);
+  font-size: clamp(28px, 4vw, 38px);
+}
+
+.dashboard-heading > p:last-child {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.sign-out-button {
+  padding: 9px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.auth-page {
+  display: grid;
+  min-height: 100vh;
+  box-sizing: border-box;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(180deg, #f3f5fb 0%, #eef2ff 100%);
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  box-sizing: border-box;
+  padding: clamp(24px, 6vw, 36px);
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  background: var(--card-background);
+  box-shadow: var(--shadow);
+}
+
+.auth-card h1 {
+  margin: 8px 0;
+  color: var(--foreground);
+  font-size: clamp(26px, 5vw, 32px);
+}
+
+.auth-description,
+.auth-hint {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.auth-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.auth-form label {
+  margin-top: 4px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.auth-form input {
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--foreground);
+}
+
+.auth-form button {
+  min-height: 44px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #fff;
+  font-weight: 700;
+}
+
+.auth-form button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.auth-hint,
+.auth-error {
+  margin: 0;
+  font-size: 13px;
+}
+
+.auth-error {
+  color: #b91c1c;
+}
+
+.auth-switch {
+  margin: 20px 0 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+.auth-switch a {
+  color: #3730a3;
+  font-weight: 700;
+}
+
+.dashboard-eyebrow,
+.hobby-chart-eyebrow {
+  margin: 0;
+  color: var(--tag-text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.daily-summary-card {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: clamp(20px, 4vw, 32px);
+}
+
+.daily-summary-header,
+.journal-header,
+.daily-score-header,
+.hobby-chart-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.daily-summary-header h2,
+.hobby-chart-header h2,
+.journal-header h2,
+.daily-score-header h2 {
+  margin: 8px 0 4px;
+  color: var(--foreground);
+  font-size: 25px;
+}
+
+.daily-summary-header > div:first-child > p:last-child,
+.journal-header > div:first-child > p:last-child,
+.daily-score-header > div:first-child > p:last-child,
+.hobby-chart-description {
+  margin: 0;
+  color: var(--muted);
+}
+
+.daily-summary-date-control,
+.daily-summary-date-control label,
+.daily-score-form label,
+.journal-form label,
+.journal-filters label,
+.hobby-chart-toolbar label {
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.daily-summary-date-control {
+  display: grid;
+  gap: 6px;
+}
+
+.daily-summary-date-control input,
+.hobby-chart-toolbar input,
+.hobby-chart-toolbar select,
+.journal-filters input,
+.journal-filters select,
+.daily-score-form input,
+.daily-score-form select {
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--foreground);
+}
+
+.daily-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.daily-summary-section {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.daily-summary-section h3 {
+  margin: 0 0 12px;
+  color: var(--foreground);
+  font-size: 17px;
+}
+
+.daily-summary-list {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.daily-summary-list li {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: #fff;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.daily-summary-status,
+.journal-status {
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+
+.daily-summary-sleep {
+  margin: 0;
+  font-size: clamp(28px, 3vw, 36px);
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.hobbiesPie {
+  width: min(850px, calc(100vw - 40px));
+}
+
+.hobbiesPie .card,
+.journal-card,
+.daily-score-card {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 24px;
+  border-radius: 18px;
+  background: var(--card-background);
+  box-shadow: var(--shadow);
+}
+
+.hobby-chart-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.hobby-chart-total {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.hobby-chart-total strong {
+  font-size: 28px;
+  color: var(--foreground);
+}
+
+.hobby-chart-filter-help {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.manage-hobbies-button,
+.journal-form button,
+.daily-score-form button {
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #fff;
+  font-weight: 700;
+  padding: 10px 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.manage-hobbies-button:hover,
+.journal-form button:hover,
+.daily-score-form button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2);
+}
+
+.hobby-chart-layout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.hobby-chart-visual {
+  display: grid;
+  place-items: center;
+  min-width: 260px;
+}
+
+.hobby-chart-donut {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(280px, 100%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+}
+
+.hobby-chart-donut-center {
+  display: grid;
+  place-items: center;
+  width: 46%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.25);
+  text-align: center;
+}
+
+.hobby-chart-donut-center strong {
+  font-size: 32px;
+}
+
+.hobby-chart-donut-center span {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hobby-chart-legend-panel {
+  min-width: 200px;
+}
+
+.hobby-chart-legend-panel h3 {
+  margin: 0 0 12px;
+  color: var(--foreground);
+  font-size: 18px;
+}
+
+.hobby-chart-legend {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.hobby-chart-legend li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--foreground);
+}
+
+.hobby-chart-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.journal-card,
+.daily-score-card {
+  min-width: 0;
+}
+
+.journal-form,
+.daily-score-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.journal-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 120px;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--foreground);
+}
+
+.journal-form input[type="date"] {
+  width: min(280px, 100%);
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--foreground);
+}
+
+.journal-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.journal-history {
+  margin-top: 22px;
+}
+
+.journal-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.journal-history-header h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 18px;
+}
+
+.journal-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.journal-entries {
+  display: grid;
+  gap: 12px;
+  padding-left: 0;
+  margin: 16px 0 0;
+  list-style: none;
+}
+
+.journal-entry {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.journal-entry time {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tag-text);
+}
+
+.journal-entry p {
+  margin: 0;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.journal-edit-button {
+  justify-self: start;
+  padding: 6px 10px;
+  border: 1px solid #c7d2fe;
+  border-radius: 7px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.journal-empty {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--muted);
+}
+
+.daily-score-month {
+  margin: 0;
+  font-weight: 700;
+  color: var(--tag-text);
+}
+
+.daily-score-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+}
+
+.daily-score-field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.daily-score-form button {
+  align-self: end;
+}
+
+.daily-score-chart-wrapper {
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(238, 242, 255, 0.8), rgba(255, 255, 255, 0.6));
+}
+
+.daily-score-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.daily-score-gridline {
+  stroke: rgba(148, 163, 184, 0.55);
+  stroke-width: 1;
+}
+
+.daily-score-gridline-vertical {
+  stroke-dasharray: 3 4;
+}
+
+.daily-score-axis-label {
+  fill: #526078;
+  font-size: 12px;
+}
+
+.daily-score-threshold {
+  stroke: rgba(79, 70, 229, 0.45);
+  stroke-width: 1.8;
+  stroke-dasharray: 8 6;
+}
+
+.daily-score-line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.daily-score-line-blue,
+.daily-score-point-blue {
+  stroke: #2563eb;
+}
+
+.daily-score-line-red,
+.daily-score-point-red {
+  stroke: #dc2626;
+}
+
+.daily-score-point {
+  fill: #ffffff;
+  stroke-width: 2.5;
+}
+
+.hobbies-dialog {
+  position: fixed;
+  inset: auto 24px 24px auto;
+  width: min(560px, calc(100vw - 32px));
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(16px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.hobbies-dialog.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.hobbies-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 0;
+}
+
+.hobbies-dialog-header h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.hobbies-dialog-close {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 32px;
+  line-height: 1;
+}
+
+.hobby-management-panel {
+  padding: 16px 20px 20px;
+}
+
+.hobby-input-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.hobby-input-row input {
+  flex: 1;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.hobby-input-row button,
+.delete-btn {
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #fff;
+  font-weight: 700;
+}
+
+.hobby-input-row button {
+  min-width: 110px;
+  padding: 10px 14px;
+}
+
+.hobby-management-list {
+  display: grid;
+  gap: 12px;
+}
+
+.hobby-management-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.hobby-management-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.hobby-management-toggle span {
+  flex: 1;
+}
+
+.hobby-management-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.delete-btn {
+  padding: 6px 10px;
+  background: #dc3545;
+}
+
+.empty-state {
+  margin: 0;
+  color: var(--muted);
+}
+
+.hobby-list-preview {
+  display: grid;
+  gap: 10px;
+}
+
+.hobby-list-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+@media (max-width: 860px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-summary-grid,
+  .daily-score-form {
+    grid-template-columns: 1fr;
+  }
+
+  .hobbiesPie {
+    width: 100%;
+  }
 }
