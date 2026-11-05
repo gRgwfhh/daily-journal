@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(32) NOT NULL,
   email VARCHAR(254) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  profile_picture MEDIUMBLOB NULL,
+  profile_picture_mime VARCHAR(16) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_username (username),
@@ -24,6 +26,19 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   KEY idx_auth_sessions_user (user_id),
   KEY idx_auth_sessions_expiry (expires_at),
   CONSTRAINT fk_auth_sessions_user
+    FOREIGN KEY (user_id) REFERENCES users (id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  token_hash CHAR(64) NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (token_hash),
+  KEY idx_password_reset_tokens_user (user_id),
+  KEY idx_password_reset_tokens_expiry (expires_at),
+  CONSTRAINT fk_password_reset_tokens_user
     FOREIGN KEY (user_id) REFERENCES users (id)
     ON DELETE CASCADE
 ) ENGINE=InnoDB;

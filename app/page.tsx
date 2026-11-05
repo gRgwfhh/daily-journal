@@ -16,5 +16,5 @@ async function AuthenticatedDashboard() {
   if (!user) {
     redirect("/login");
   }
-  return <Dashboard username={user.username} />;
+  return <Dashboard username={user.username} avatarUrl={user.avatarUrl} />;
 }

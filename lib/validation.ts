@@ -12,6 +12,10 @@ export function isValidDate(value: unknown): value is string {
   );
 }
 
+export function getHobbyCheckinDate(chartDate: string, summaryDate: string) {
+  return chartDate || summaryDate;
+}
+
 export function getPeriodRange(period: string, referenceDate: string) {
   const [year, month, day] = referenceDate.split("-").map(Number);
   let start: Date;

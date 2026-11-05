@@ -7,6 +7,8 @@ import {
 
 const PASSWORD_HASH_BYTES = 64;
 const SESSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+export const PASSWORD_RESET_TOKEN_TTL_SECONDS = 60 * 60;
+export const PASSWORD_RESET_COOLDOWN_SECONDS = 60;
 
 function derivePassword(password: string, salt: Buffer) {
   return new Promise<Buffer>((resolve, reject) => {
@@ -76,6 +78,14 @@ export async function verifyPassword(password: string, encodedHash: string) {
 
 export function createSessionToken() {
   return randomBytes(32).toString("base64url");
+}
+
+export function createPasswordResetToken() {
+  return randomBytes(32).toString("base64url");
+}
+
+export function hashPasswordResetToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 export function hashSessionToken(token: string) {

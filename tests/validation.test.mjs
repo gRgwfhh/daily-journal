@@ -1,21 +1,31 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  getHobbyCheckinDate,
   getPeriodRange,
   isValidDate,
   isValidSleepHours,
 } from "../lib/validation.ts";
 import {
   createSessionToken,
+  createPasswordResetToken,
   getSessionToken,
   hashPassword,
+  hashPasswordResetToken,
   hashSessionToken,
   isSameOriginRequest,
   isValidPassword,
   normalizeEmail,
   normalizeUsername,
+  PASSWORD_RESET_COOLDOWN_SECONDS,
+  PASSWORD_RESET_TOKEN_TTL_SECONDS,
   verifyPassword,
 } from "../lib/auth-credentials.ts";
+import {
+  getProfileImageMimeType,
+  MAX_PROFILE_IMAGE_BYTES,
+} from "../lib/profile.ts";
+import { getMailConfiguration } from "../lib/email.ts";
 import {
   getSleepChartPoint,
   getSleepLineSegments,
@@ -33,6 +43,11 @@ test("returns the selected day range", () => {
     start: "2024-02-29",
     end: "2024-03-01",
   });
+});
+
+test("uses the chart-selected date for hobby check-ins, falling back to the summary date", () => {
+  assert.equal(getHobbyCheckinDate("2026-10-12", "2026-11-05"), "2026-10-12");
+  assert.equal(getHobbyCheckinDate("", "2026-11-05"), "2026-11-05");
 });
 
 test("validates sleep hours from 0 through 12 to two decimal places", () => {
@@ -132,6 +147,83 @@ test("creates opaque session tokens and accepts only valid session cookies", () 
   assert.equal(getSessionToken(null), null);
   assert.match(hashSessionToken(token), /^[a-f0-9]{64}$/);
   assert.notEqual(hashSessionToken(token), token);
+});
+
+test("creates opaque, hash-only password reset tokens that expire after one hour", () => {
+  const token = createPasswordResetToken();
+  assert.match(token, /^[A-Za-z0-9_-]{43}$/);
+  assert.equal(PASSWORD_RESET_TOKEN_TTL_SECONDS, 3600);
+  assert.equal(PASSWORD_RESET_COOLDOWN_SECONDS, 60);
+  assert.match(hashPasswordResetToken(token), /^[a-f0-9]{64}$/);
+  assert.notEqual(hashPasswordResetToken(token), token);
+  assert.equal(hashPasswordResetToken(token), hashPasswordResetToken(token));
+});
+
+test("accepts only PNG, JPEG, and WebP profile image signatures", () => {
+  assert.equal(
+    getProfileImageMimeType(
+      new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    ),
+    "image/png",
+  );
+  assert.equal(
+    getProfileImageMimeType(new Uint8Array([0xff, 0xd8, 0xff])),
+    "image/jpeg",
+  );
+  assert.equal(
+    getProfileImageMimeType(
+      new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]),
+    ),
+    "image/webp",
+  );
+  assert.equal(getProfileImageMimeType(new Uint8Array([0x47, 0x49, 0x46, 0x38])), null);
+  assert.equal(MAX_PROFILE_IMAGE_BYTES, 2 * 1024 * 1024);
+});
+
+test("validates SMTP settings and requires HTTPS for production reset links", () => {
+  const keys = [
+    "APP_URL",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "SMTP_USER",
+    "SMTP_PASSWORD",
+    "SMTP_FROM",
+    "NODE_ENV",
+  ];
+  const original = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  try {
+    Object.assign(process.env, {
+      APP_URL: "https://journal.example/",
+      SMTP_HOST: "smtp.example",
+      SMTP_PORT: "465",
+      SMTP_USER: "journal-user",
+      SMTP_PASSWORD: "test-password",
+      SMTP_FROM: "journal@example",
+      NODE_ENV: "production",
+    });
+    assert.deepEqual(getMailConfiguration(), {
+      host: "smtp.example",
+      port: 465,
+      secure: true,
+      auth: { user: "journal-user", pass: "test-password" },
+      from: "journal@example",
+      baseUrl: "https://journal.example",
+    });
+
+    process.env.APP_URL = "http://journal.example";
+    assert.throws(() => getMailConfiguration(), /HTTPS in production/);
+    process.env.APP_URL = "https://journal.example";
+    process.env.SMTP_PORT = "not-a-port";
+    assert.throws(() => getMailConfiguration(), /valid TCP port/);
+  } finally {
+    for (const key of keys) {
+      if (original[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = original[key];
+      }
+    }
+  }
 });
 
 test("rejects cross-origin requests that could mutate an account", () => {

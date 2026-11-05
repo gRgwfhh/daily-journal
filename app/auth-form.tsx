@@ -117,7 +117,7 @@ export default function AuthForm({ mode }: Props) {
           />
           {isRegistration && (
             <p className="auth-hint">
-              Your email is saved for a future password recovery feature.
+              Your email can be used to recover your password.
             </p>
           )}
           {error && <p className="auth-error" role="alert">{error}</p>}
@@ -135,6 +135,11 @@ export default function AuthForm({ mode }: Props) {
             {isRegistration ? "Sign in" : "Create an account"}
           </Link>
         </p>
+        {!isRegistration && (
+          <p className="auth-switch">
+            <Link href="/forgot-password">Forgot your password?</Link>
+          </p>
+        )}
       </section>
     </main>
   );

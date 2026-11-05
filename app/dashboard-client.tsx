@@ -7,8 +7,10 @@ import {
   useSyncExternalStore,
   type FormEvent,
 } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSleepChartPoint, getSleepLineSegments } from "@/lib/sleep-chart";
+import { getHobbyCheckinDate } from "@/lib/validation";
 
 type Hobby = {
   id: number;
@@ -151,7 +153,13 @@ function isInJournalPeriod(entryDate: string, period: string, referenceDate: str
   return date >= start && date < end;
 }
 
-export default function Home({ username }: { username: string }) {
+export default function Home({
+  username,
+  avatarUrl,
+}: {
+  username: string;
+  avatarUrl: string | null;
+}) {
   const router = useRouter();
   const [hobbies, setHobbies] = useState<Hobby[]>([]);
   const [newHobby, setNewHobby] = useState("");
@@ -183,6 +191,7 @@ export default function Home({ username }: { username: string }) {
   );
 
   const summaryDate = selectedSummaryDate || todayDate;
+  const hobbyCheckinDate = getHobbyCheckinDate(hobbyChartDate, summaryDate);
   const journalDate = selectedJournalDate || todayDate;
   const journalReferenceDate = selectedJournalReferenceDate || summaryDate;
   const sleepDate = sleepDateSelection || todayDate;
@@ -195,7 +204,7 @@ export default function Home({ username }: { username: string }) {
 
     let active = true;
     const loadHobbies = async () => {
-      const selectedDate = summaryDate || todayDate;
+      const selectedDate = getHobbyCheckinDate(hobbyChartDate, summaryDate || todayDate);
       const chartReferenceDate = hobbyChartDate || selectedDate;
       const query = new URLSearchParams({
         date: selectedDate,
@@ -364,7 +373,7 @@ export default function Home({ username }: { username: string }) {
     try {
       await requestApi(`/api/hobbies/${item.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ checked: selected, date: summaryDate }),
+        body: JSON.stringify({ checked: selected, date: hobbyCheckinDate }),
       });
       refreshHobbies();
     } catch (error) {
@@ -474,22 +483,37 @@ export default function Home({ username }: { username: string }) {
             <h1>Habit dashboard</h1>
             <p>Signed in as {username}. See how your hobbies are adding up.</p>
           </div>
-          <button
-            className="sign-out-button"
-            type="button"
-            onClick={async () => {
-              try {
-                await requestApi("/api/auth/session", { method: "DELETE" });
-                router.replace("/login");
-              } catch (error) {
-                setHobbyStatus(
-                  `Could not sign out: ${error instanceof Error ? error.message : "Unknown error."}`,
-                );
-              }
-            }}
-          >
-            Sign out
-          </button>
+          <div className="dashboard-account-actions">
+            <Link
+              className="profile-avatar-link"
+              href="/profile"
+              aria-label="Profile settings"
+              title="Profile settings"
+            >
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="" />
+              ) : (
+                <span aria-hidden="true">{username.slice(0, 1).toUpperCase()}</span>
+              )}
+            </Link>
+            <button
+              className="sign-out-button"
+              type="button"
+              onClick={async () => {
+                try {
+                  await requestApi("/api/auth/session", { method: "DELETE" });
+                  router.replace("/login");
+                } catch (error) {
+                  setHobbyStatus(
+                    `Could not sign out: ${error instanceof Error ? error.message : "Unknown error."}`,
+                  );
+                }
+              }}
+            >
+              Sign out
+            </button>
+          </div>
         </header>
 
         <section className="daily-summary-card card" aria-labelledby="dailySummaryTitle">
@@ -900,7 +924,7 @@ export default function Home({ username }: { username: string }) {
 
                   <div className="hobby-management-meta">
                     <span>
-                      {item.checked ? "Checked in for selected date" : `Created · ${formatTimestamp(item.createdAt)}`}
+                      {item.checked ? `Checked in for ${hobbyCheckinDate}` : `Created · ${formatTimestamp(item.createdAt)}`}
                       {` · ${item.checkCount} checks in selected range · ${item.allTimeCount} total`}
                     </span>
                     <button type="button" className="delete-btn" onClick={() => void removeHobby(item.id)}>
