@@ -3,12 +3,15 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type FormEvent,
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getHobbyChartColors } from "@/lib/hobby-chart";
+import { getMonthlyJournalSummary, getSleepSummary } from "@/lib/monthly-summary";
 import { getSleepChartPoint, getSleepLineSegments } from "@/lib/sleep-chart";
 import { getHobbyCheckinDate } from "@/lib/validation";
 
@@ -31,8 +34,6 @@ type SleepRecord = {
   date: string;
   hoursSlept: number;
 };
-
-const HOBBY_COLORS = ["#2563eb", "#db2777", "#d97706", "#059669", "#7c3aed", "#0891b2"];
 
 async function requestApi<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -161,11 +162,37 @@ export default function Home({
   avatarUrl: string | null;
 }) {
   const router = useRouter();
+  const hobbiesDialogRef = useRef<HTMLDialogElement>(null);
+  const hobbyNameInputRef = useRef<HTMLInputElement>(null);
+  const manageHobbiesButtonRef = useRef<HTMLButtonElement>(null);
   const [hobbies, setHobbies] = useState<Hobby[]>([]);
+  const [summaryHobbyData, setSummaryHobbyData] = useState<{
+    month: string;
+    hobbies: Hobby[];
+  } | null>(null);
+  const [summaryHobbyStatus, setSummaryHobbyStatus] = useState<{
+    month: string;
+    message: string;
+  } | null>(null);
+  const [summaryMomentData, setSummaryMomentData] = useState<{
+    month: string;
+    entries: JournalEntry[];
+  } | null>(null);
+  const [summaryMomentStatus, setSummaryMomentStatus] = useState<{
+    month: string;
+    message: string;
+  } | null>(null);
+  const [summarySleepData, setSummarySleepData] = useState<{
+    month: string;
+    records: SleepRecord[];
+  } | null>(null);
+  const [summarySleepStatus, setSummarySleepStatus] = useState<{
+    month: string;
+    message: string;
+  } | null>(null);
   const [newHobby, setNewHobby] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedSummaryDate, setSelectedSummaryDate] = useState("");
-  const [hobbyPeriod, setHobbyPeriod] = useState("week");
+  const [selectedSummaryMonth, setSelectedSummaryMonth] = useState("");
   const [hobbyChartDate, setHobbyChartDate] = useState("");
   const [hobbyStatus, setHobbyStatus] = useState("");
   const [hobbyRefresh, setHobbyRefresh] = useState(0);
@@ -178,8 +205,6 @@ export default function Home({
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [journalRefresh, setJournalRefresh] = useState(0);
   const [sleepRecords, setSleepRecords] = useState<SleepRecord[]>([]);
-  const [summarySleepRecord, setSummarySleepRecord] = useState<SleepRecord | null>(null);
-  const [summarySleepStatus, setSummarySleepStatus] = useState("");
   const [sleepDateSelection, setSleepDateSelection] = useState("");
   const [hoursSlept, setHoursSlept] = useState("");
   const [sleepStatus, setSleepStatus] = useState("");
@@ -190,12 +215,27 @@ export default function Home({
     getServerDateSnapshot,
   );
 
-  const summaryDate = selectedSummaryDate || todayDate;
+  const summaryDate = todayDate;
+  const summaryMonth = selectedSummaryMonth || todayDate.slice(0, 7);
   const hobbyCheckinDate = getHobbyCheckinDate(hobbyChartDate, summaryDate);
   const journalDate = selectedJournalDate || todayDate;
-  const journalReferenceDate = selectedJournalReferenceDate || summaryDate;
+  const journalReferenceDate = selectedJournalReferenceDate || todayDate;
   const sleepDate = sleepDateSelection || todayDate;
   const sleepMonth = sleepDate.slice(0, 7);
+
+  useEffect(() => {
+    const dialog = hobbiesDialogRef.current;
+    if (!dialog) {
+      return;
+    }
+
+    if (isDialogOpen && !dialog.open) {
+      dialog.showModal();
+      hobbyNameInputRef.current?.focus();
+    } else if (!isDialogOpen && dialog.open) {
+      dialog.close();
+    }
+  }, [isDialogOpen]);
 
   useEffect(() => {
     if (!todayDate) {
@@ -208,7 +248,7 @@ export default function Home({
       const chartReferenceDate = hobbyChartDate || selectedDate;
       const query = new URLSearchParams({
         date: selectedDate,
-        period: hobbyChartDate ? "day" : hobbyPeriod,
+        period: hobbyChartDate ? "day" : "week",
         referenceDate: chartReferenceDate,
       });
 
@@ -231,7 +271,71 @@ export default function Home({
     return () => {
       active = false;
     };
-  }, [todayDate, summaryDate, hobbyPeriod, hobbyChartDate, hobbyRefresh]);
+  }, [todayDate, summaryDate, hobbyChartDate, hobbyRefresh]);
+
+  useEffect(() => {
+    if (!summaryMonth) {
+      return;
+    }
+
+    let active = true;
+    const monthStart = `${summaryMonth}-01`;
+    const query = new URLSearchParams({
+      date: monthStart,
+      period: "month",
+      referenceDate: monthStart,
+    });
+    void requestApi<Hobby[]>(`/api/hobbies?${query}`)
+      .then((result) => {
+        if (active) {
+          setSummaryHobbyData({ month: summaryMonth, hobbies: result });
+          setSummaryHobbyStatus(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setSummaryHobbyStatus({
+            month: summaryMonth,
+            message: `Could not load monthly hobby check-ins: ${error instanceof Error ? error.message : "Unknown error."}`,
+          });
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [summaryMonth, hobbyRefresh]);
+
+  useEffect(() => {
+    if (!summaryMonth) {
+      return;
+    }
+
+    let active = true;
+    const query = new URLSearchParams({
+      period: "month",
+      date: `${summaryMonth}-01`,
+    });
+    void requestApi<JournalEntry[]>(`/api/journal?${query}`)
+      .then((entries) => {
+        if (active) {
+          setSummaryMomentData({ month: summaryMonth, entries });
+          setSummaryMomentStatus(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setSummaryMomentStatus({
+            month: summaryMonth,
+            message: `Could not load memorable moments: ${error instanceof Error ? error.message : "Unknown error."}`,
+          });
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [summaryMonth, journalRefresh]);
 
   useEffect(() => {
     if (!todayDate) {
@@ -290,44 +394,45 @@ export default function Home({
   }, [sleepMonth, sleepDate, sleepRefresh]);
 
   useEffect(() => {
-    if (!summaryDate) {
+    if (!summaryMonth) {
       return;
     }
     let active = true;
-    const summaryMonth = summaryDate.slice(0, 7);
     void requestApi<SleepRecord[]>(`/api/sleep?month=${encodeURIComponent(summaryMonth)}`)
       .then((records) => {
         if (active) {
-          setSummarySleepRecord(records.find((record) => record.date === summaryDate) ?? null);
-          setSummarySleepStatus("");
+          setSummarySleepData({ month: summaryMonth, records });
+          setSummarySleepStatus(null);
         }
       })
       .catch((error: unknown) => {
         if (active) {
-          setSummarySleepStatus(
-            `Could not load sleep summary: ${error instanceof Error ? error.message : "Unknown error."}`,
-          );
+          setSummarySleepStatus({
+            month: summaryMonth,
+            message: `Could not load monthly sleep summary: ${error instanceof Error ? error.message : "Unknown error."}`,
+          });
         }
       });
 
     return () => {
       active = false;
     };
-  }, [summaryDate, sleepRefresh]);
+  }, [summaryMonth, sleepRefresh]);
 
   const hobbyBreakdown = useMemo(
-    () =>
-      hobbies.map((item) => ({
+    () => {
+      const colors = getHobbyChartColors(hobbies.length);
+      return hobbies.map((item, index) => ({
         name: item.name,
         checks: item.checkCount,
-        color: HOBBY_COLORS[Math.abs(item.name.length) % HOBBY_COLORS.length],
-      })),
+        color: colors[index],
+      }));
+    },
     [hobbies],
   );
 
   const totalChecks = hobbies.reduce((sum, item) => sum + item.checkCount, 0);
   const chartGradient = buildChartGradient(hobbyBreakdown);
-  const selectedMoment = journalEntries.find((entry) => entry.date === journalReferenceDate);
   const currentJournalEntry = journalEntries.find((entry) => entry.date === journalDate);
   const journalDraftValue =
     journalDraftDate === journalDate ? journalDraft : currentJournalEntry?.text ?? "";
@@ -335,10 +440,33 @@ export default function Home({
     .filter((entry) => isInJournalPeriod(entry.date, journalPeriod, journalReferenceDate))
     .sort((left, right) => right.date.localeCompare(left.date));
 
-  const dailySummaryHobbies = hobbies.filter((item) => item.checked).slice(0, 3).map((item) => ({
-    name: item.name,
-    detail: "Checked in for this date",
-  }));
+  const summaryHobbyBreakdown = useMemo(() => {
+    if (summaryHobbyData?.month !== summaryMonth) {
+      return [];
+    }
+
+    const colors = getHobbyChartColors(summaryHobbyData.hobbies.length);
+    return summaryHobbyData.hobbies.map((item, index) => ({
+      name: item.name,
+      checks: item.checkCount,
+      color: colors[index],
+    }));
+  }, [summaryHobbyData, summaryMonth]);
+  const summaryHobbyTotal = summaryHobbyBreakdown.reduce((sum, item) => sum + item.checks, 0);
+  const summaryHobbyGradient = buildChartGradient(summaryHobbyBreakdown);
+  const summarySleepRecords =
+    summarySleepData?.month === summaryMonth ? summarySleepData.records : [];
+  const monthlySleepSummary = getSleepSummary(summarySleepRecords);
+  const monthlyJournalSummary =
+    summaryMomentData?.month === summaryMonth
+      ? getMonthlyJournalSummary(summaryMomentData.entries, summaryMonth, todayDate)
+      : null;
+  const monthlyHobbyError =
+    summaryHobbyStatus?.month === summaryMonth ? summaryHobbyStatus.message : "";
+  const monthlyMomentError =
+    summaryMomentStatus?.month === summaryMonth ? summaryMomentStatus.message : "";
+  const monthlySleepError =
+    summarySleepStatus?.month === summaryMonth ? summarySleepStatus.message : "";
 
   const monthDays = sleepMonth
     ? new Date(Number(sleepMonth.slice(0, 4)), Number(sleepMonth.slice(5, 7)), 0).getDate()
@@ -346,6 +474,12 @@ export default function Home({
   const sleepLineSegments = getSleepLineSegments(sleepRecords, monthDays);
 
   const refreshHobbies = () => setHobbyRefresh((value) => value + 1);
+
+  const closeHobbiesDialog = () => {
+    hobbiesDialogRef.current?.close();
+    setIsDialogOpen(false);
+    manageHobbiesButtonRef.current?.focus();
+  };
 
   const addHobby = async () => {
     const value = newHobby.trim();
@@ -464,9 +598,6 @@ export default function Home({
       });
       setSleepStatus("Hours of sleep saved.");
       setSleepRefresh((value) => value + 1);
-      if (sleepDate === summaryDate) {
-        setSelectedSummaryDate(sleepDate);
-      }
     } catch (error) {
       setSleepStatus(
         `Could not save sleep record: ${error instanceof Error ? error.message : "Unknown error."}`,
@@ -519,20 +650,17 @@ export default function Home({
         <section className="daily-summary-card card" aria-labelledby="dailySummaryTitle">
           <div className="daily-summary-header">
             <div>
-              <p className="hobby-chart-eyebrow">YOUR DAY</p>
-              <h2 id="dailySummaryTitle">Daily summary</h2>
-              <p>Review your hobbies, memorable moments, and sleep for a selected date.</p>
+              <p className="hobby-chart-eyebrow">MONTHLY OVERVIEW</p>
+              <h2 id="dailySummaryTitle">Monthly summary</h2>
+              <p>Review your hobby check-ins, memorable moments, and sleep for the selected month.</p>
             </div>
             <div className="daily-summary-date-control">
-              <label htmlFor="dailySummaryDate">Date</label>
+              <label htmlFor="dailySummaryMonth">Month</label>
               <input
-                id="dailySummaryDate"
-                type="date"
-                value={summaryDate}
-                onChange={(event) => {
-                  setSelectedSummaryDate(event.target.value);
-                  setSelectedJournalReferenceDate(event.target.value);
-                }}
+                id="dailySummaryMonth"
+                type="month"
+                value={summaryMonth}
+                onChange={(event) => setSelectedSummaryMonth(event.target.value)}
               />
             </div>
           </div>
@@ -540,53 +668,82 @@ export default function Home({
           <div className="daily-summary-grid">
             <section className="daily-summary-section" aria-labelledby="dailySummaryHobbiesTitle">
               <h3 id="dailySummaryHobbiesTitle">Hobbies</h3>
-              <ul className="daily-summary-list">
-                {dailySummaryHobbies.length > 0 ? (
-                  dailySummaryHobbies.map((item) => (
-                    <li key={item.name}>
-                      <strong>{item.name}</strong>
-                      <span>{item.detail}</span>
-                    </li>
-                  ))
-                ) : (
-                  <li>
-                    <strong>No check-ins for this date</strong>
-                    <span>Use Manage hobbies to record an activity.</span>
-                  </li>
-                )}
-              </ul>
+              {monthlyHobbyError ? (
+                <p className="monthly-summary-empty" role="status">{monthlyHobbyError}</p>
+              ) : summaryHobbyData?.month !== summaryMonth ? (
+                <p className="monthly-summary-empty">Loading monthly check-ins.</p>
+              ) : summaryHobbyTotal > 0 ? (
+                <div className="monthly-summary-hobby-layout">
+                  <div
+                    className="hobby-chart-donut monthly-summary-donut"
+                    style={{ background: `conic-gradient(${summaryHobbyGradient})` }}
+                    role="img"
+                    aria-label={`Pie chart of ${summaryHobbyTotal} hobby check-ins for ${summaryMonth}`}
+                  >
+                    <div className="hobby-chart-donut-center">
+                      <strong>{summaryHobbyTotal}</strong>
+                      <span>check-ins</span>
+                    </div>
+                  </div>
+                  <ul className="hobby-chart-legend monthly-summary-hobby-legend" aria-label="Monthly hobby check-ins">
+                    {summaryHobbyBreakdown.filter((item) => item.checks > 0).map((item) => (
+                      <li key={item.name}>
+                        <span className="hobby-chart-swatch" style={{ background: item.color }} aria-hidden="true" />
+                        <span>{item.name}</span>
+                        <strong>{item.checks}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="monthly-summary-empty">No hobby check-ins recorded this month.</p>
+              )}
             </section>
 
             <section className="daily-summary-section" aria-labelledby="dailySummaryMomentsTitle">
               <h3 id="dailySummaryMomentsTitle">Memorable moments</h3>
-              <ul className="daily-summary-list">
-                <li>
-                  {selectedMoment ? (
-                    <>
-                      <strong>{formatJournalDate(selectedMoment.date)}</strong>
-                      <span>{selectedMoment.text}</span>
-                    </>
-                  ) : (
-                    <>
-                      <strong>No moment recorded</strong>
-                      <span>Save a memorable moment for {journalReferenceDate ? formatJournalDate(journalReferenceDate) : "this date"}.</span>
-                    </>
-                  )}
-                </li>
-              </ul>
+              {monthlyMomentError ? (
+                <p className="monthly-summary-empty" role="status">{monthlyMomentError}</p>
+              ) : !monthlyJournalSummary ? (
+                <p className="monthly-summary-empty" role="status">Loading memorable moments.</p>
+              ) : (
+                <dl className="monthly-summary-stats">
+                  <div>
+                    <dt>Entries made</dt>
+                    <dd>{monthlyJournalSummary.entryCount}</dd>
+                  </div>
+                  <div>
+                    <dt>Missed dates</dt>
+                    <dd>{monthlyJournalSummary.missedDateCount}</dd>
+                  </div>
+                </dl>
+              )}
             </section>
 
             <section className="daily-summary-section" aria-labelledby="dailySummarySleepTitle">
               <h3 id="dailySummarySleepTitle">Sleep</h3>
-              <p className="daily-summary-sleep">
-                {summarySleepRecord ? `${summarySleepRecord.hoursSlept.toFixed(1)}h` : "--"}
-              </p>
-              <p className="daily-summary-status" role="status" aria-live="polite">
-                {summarySleepStatus ||
-                  (summarySleepRecord
-                    ? `${summarySleepRecord.hoursSlept} hours recorded`
-                    : "No sleep record for this date.")}
-              </p>
+              {monthlySleepError ? (
+                <p className="monthly-summary-empty" role="status">{monthlySleepError}</p>
+              ) : summarySleepData?.month !== summaryMonth ? (
+                <p className="monthly-summary-empty">Loading monthly sleep records.</p>
+              ) : monthlySleepSummary ? (
+                <dl className="monthly-summary-stats">
+                  <div>
+                    <dt>Average</dt>
+                    <dd>{monthlySleepSummary.average.toFixed(1)}h</dd>
+                  </div>
+                  <div>
+                    <dt>Lowest</dt>
+                    <dd>{monthlySleepSummary.lowest.toFixed(1)}h</dd>
+                  </div>
+                  <div>
+                    <dt>Highest</dt>
+                    <dd>{monthlySleepSummary.highest.toFixed(1)}h</dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="monthly-summary-empty">No sleep records for this month.</p>
+              )}
             </section>
           </div>
         </section>
@@ -599,26 +756,18 @@ export default function Home({
                 <h2 id="hobbyChartTitle">Hobby checks</h2>
                 <p className="hobby-chart-description">Your completed hobby check-ins by activity.</p>
               </div>
-              <button className="manage-hobbies-button" type="button" onClick={() => setIsDialogOpen(true)}>
+              <button
+                ref={manageHobbiesButtonRef}
+                className="manage-hobbies-button"
+                type="button"
+                onClick={() => setIsDialogOpen(true)}
+              >
                 Manage hobbies
               </button>
             </div>
 
             <div className="hobby-chart-toolbar">
-              <label htmlFor="hobbyChartPeriod">Period</label>
-              <select
-                id="hobbyChartPeriod"
-                value={hobbyPeriod}
-                onChange={(event) => {
-                  setHobbyPeriod(event.target.value);
-                  setHobbyChartDate("");
-                }}
-              >
-                <option value="week">This week</option>
-                <option value="month">This month</option>
-                <option value="year">This year</option>
-              </select>
-              <label htmlFor="hobbyChartDate">Or choose a date</label>
+              <label htmlFor="hobbyChartDate">Choose a date</label>
               <input
                 id="hobbyChartDate"
                 type="date"
@@ -627,10 +776,9 @@ export default function Home({
               />
               <p className="hobby-chart-total">
                 <strong>{totalChecks}</strong>
-                <span>{hobbyChartDate ? "checks on this date" : `checks this ${hobbyPeriod}`}</span>
+                <span>{hobbyChartDate ? "checks on this date" : "checks this week"}</span>
               </p>
             </div>
-            <p className="hobby-chart-filter-help">Changing the period shows that range; choosing a date shows that day.</p>
             <p className="hobby-status" role="status" aria-live="polite">{hobbyStatus}</p>
 
             <div className="hobby-chart-layout">
@@ -638,7 +786,7 @@ export default function Home({
                 <div
                   className="hobby-chart-donut"
                   style={{ background: `conic-gradient(${chartGradient})` }}
-                  aria-label={`Pie chart of hobby checks ${hobbyChartDate ? `on ${hobbyChartDate}` : `this ${hobbyPeriod}`}`}
+                  aria-label={`Pie chart of hobby checks ${hobbyChartDate ? `on ${hobbyChartDate}` : "this week"}`}
                 >
                   <div className="hobby-chart-donut-center">
                     <strong>{totalChecks}</strong>
@@ -881,17 +1029,24 @@ export default function Home({
         </section>
       </main>
 
-      <div
-        className={`hobbies-dialog ${isDialogOpen ? "open" : ""}`}
-        role="dialog"
-        aria-modal={isDialogOpen}
-        aria-hidden={!isDialogOpen}
+      <dialog
+        ref={hobbiesDialogRef}
+        className="hobbies-dialog"
         aria-labelledby="manageHobbiesTitle"
-        hidden={!isDialogOpen}
+        onCancel={(event) => {
+          event.preventDefault();
+          closeHobbiesDialog();
+        }}
+        onClose={() => setIsDialogOpen(false)}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            closeHobbiesDialog();
+          }
+        }}
       >
         <div className="hobbies-dialog-header">
           <h2 id="manageHobbiesTitle">Manage your hobbies</h2>
-          <button type="button" className="hobbies-dialog-close" aria-label="Close" onClick={() => setIsDialogOpen(false)}>
+          <button type="button" className="hobbies-dialog-close" aria-label="Close" onClick={closeHobbiesDialog}>
             &times;
           </button>
         </div>
@@ -899,6 +1054,7 @@ export default function Home({
         <div className="hobby-management-panel">
           <div className="hobby-input-row">
             <input
+              ref={hobbyNameInputRef}
               type="text"
               value={newHobby}
               onChange={(event) => setNewHobby(event.target.value)}
@@ -938,7 +1094,7 @@ export default function Home({
             )}
           </div>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

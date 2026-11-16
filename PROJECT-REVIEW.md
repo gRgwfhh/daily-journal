@@ -1,74 +1,74 @@
 # Project Review: Database and Improvement Recommendations
 
-**Reviewed:** 2026-11-03
+**Reviewed:** 2026-11-08
 
 ## Database connection
 
-The project does not currently connect to a database. Hobby and journal data are stored in the browser's `localStorage` in [app/page.tsx](./app/page.tsx). The project has no database driver, ORM, API route, or database configuration in [package.json](./package.json). Data is therefore limited to the browser and site origin where it was entered; it does not sync across devices or users.
+The project uses MySQL for user accounts, hobbies and check-ins, journal entries, and sleep records through authenticated API routes. Connection settings are configured with environment variables; see [lib/db.ts](./lib/db.ts) and [.env.example](./.env.example). Data persists in the configured database and is no longer stored in browser `localStorage`.
 
 ## Findings
 
-### 🟡 WARNING — Dashboard controls do not reflect real data
+### ✅ RESOLVED — Dashboard controls use date-specific records
 
-**Location:** [app/page.tsx](./app/page.tsx)  
+**Location:** [app/dashboard-client.tsx](./app/dashboard-client.tsx), [app/api/hobbies/route.ts](./app/api/hobbies/route.ts), [app/api/sleep/route.ts](./app/api/sleep/route.ts)
 **Confidence:** High
 
-The hobby period and date controls do not change the chart, whose totals are lifetime counts despite the period label. The sleep form has no save handler, and the displayed sleep chart is generated from hobby counts. The daily summary date also does not filter its hobby or sleep information. Connect these controls to real, date-specific records, or clearly identify the sections as demos until that data exists.
+The hobby chart filters check-ins by the selected period or date, and the sleep form saves records used by the monthly sleep chart. The summary sleep value is also filtered by its selected date. One remaining date mismatch was fixed: daily summary hobby check-ins now load for the summary date independently of the hobby chart's selected date or period.
 
-### 🟡 WARNING — Clearing all hobbies does not persist
+### ✅ RESOLVED — Hobby deletion persists
 
-**Location:** [app/page.tsx](./app/page.tsx)  
+**Location:** [app/api/hobbies/[id]/route.ts](./app/api/hobbies/[id]/route.ts), [app/dashboard-client.tsx](./app/dashboard-client.tsx)
 **Confidence:** High
 
-Loading saved hobbies ignores an empty array, so deleting the final hobby restores the sample hobbies on reload. Preserve an explicitly empty saved list separately from the absence of saved data.
+Hobbies are stored in MySQL and deleted through an authenticated, user-scoped API request. Deleting the final hobby does not restore sample data after reload.
 
-### 🟡 WARNING — Hobby check-ins are not recorded by date
+### ✅ RESOLVED — Hobby check-ins are recorded by date
 
-**Location:** [app/page.tsx](./app/page.tsx)  
+**Location:** [database/schema.sql](./database/schema.sql), [app/api/hobbies/[id]/route.ts](./app/api/hobbies/[id]/route.ts), [app/api/hobbies/route.ts](./app/api/hobbies/route.ts)
 **Confidence:** High
 
-A hobby stores only a checked flag and aggregate count. Unchecking reduces the count, and there is no history to support daily summaries or period-based charts. Record check-ins by hobby and date, and define whether undoing a check-in removes that date's record.
+Check-ins are stored by hobby and date, and the API aggregates them for the selected period. Unchecking removes that hobby's check-in for the selected date without deleting other dates' history.
 
-### 🟡 WARNING — Hobby storage errors can appear as successful saves
+### ✅ RESOLVED — Hobby API errors are surfaced
 
-**Location:** [app/page.tsx](./app/page.tsx)  
+**Location:** [app/dashboard-client.tsx](./app/dashboard-client.tsx), [app/api/hobbies/route.ts](./app/api/hobbies/route.ts)
 **Confidence:** High
 
-Hobby data is parsed with only an array check, and localStorage writes are not handled for access or quota errors. Invalid saved data may break rendering; failed writes can appear successful until reload. Validate stored records, preserve a clear error state, and consider export or backup support.
+Hobby data is no longer parsed from localStorage. API failures are returned as errors and displayed by hobby loading and save actions rather than presented as successful writes.
 
-### 🟡 WARNING — The hobby dialog is not fully modal or accessible
+### ✅ RESOLVED — The hobby dialog is modal and accessible
 
-**Location:** [app/page.tsx](./app/page.tsx), [app/globals.css](./app/globals.css)  
+**Location:** [app/dashboard-client.tsx](./app/dashboard-client.tsx), [app/globals.css](./app/globals.css)
 **Confidence:** High
 
-The dialog remains in the accessibility tree when visually closed, yet declares itself modal even then. When opened, it also lacks focus management and a backdrop. Use a dialog implementation that properly handles open and close state, Escape, focus, and interaction with the rest of the page.
+The hobby manager uses the native modal dialog API, which removes it from the accessibility tree while closed, traps interaction behind a backdrop while open, and supports Escape. Focus moves into the dialog on open and returns to the Manage hobbies button on close.
 
-### 🔵 INFO — Add journal deletion and regression coverage
+### 🔵 INFO — Expand journal regression coverage
 
-**Location:** [app/page.tsx](./app/page.tsx), [package.json](./package.json)  
+**Location:** [app/dashboard-client.tsx](./app/dashboard-client.tsx), [app/api/journal/route.ts](./app/api/journal/route.ts), [tests/validation.test.mjs](./tests/validation.test.mjs)
 **Confidence:** Medium
 
-Journal entries can be saved and edited, but not deleted. Add deletion if entries should be removable, and test persistence plus day, week, month, and year filtering and date boundaries. There is no test script or test suite configured.
+Journal entries can be saved, edited, and deleted, and the project has a test suite that covers date validation and range boundaries. Add regression tests for journal API persistence and day, week, month, and year filtering.
 
-### 🔵 INFO — Document current storage limitations
+### 🔵 INFO — Document legacy data reset and export options
 
 **Location:** [README.md](./README.md)  
 **Confidence:** High
 
-The README is still the generic Next.js starter guide. Document that data is browser-local, how to reset or back it up, and whether a database-backed multi-device version is planned.
+The README documents MySQL storage and notes that older browser-local data is not imported automatically. Consider documenting how users can reset or export that legacy browser data.
 
-### 🔵 INFO — Lint currently reports an error
+### ✅ RESOLVED — Lint passes cleanly
 
-**Location:** [app/page.tsx](./app/page.tsx)  
+**Location:** [app/dashboard-client.tsx](./app/dashboard-client.tsx)
 **Confidence:** High
 
-The existing hobby-loading effect triggers the lint rule against synchronous state updates in effects. Refactor that hydration pattern so lint passes cleanly.
+The current dashboard passes the configured ESLint check (`npm run lint`).
 
 ## Strengths
 
-- Journal writes report localStorage failures to the user rather than silently claiming success.
+- Journal writes report API and database failures to the user rather than silently claiming success.
 - Journal text is rendered as React text, not interpreted as HTML.
 
 ## Scope and validation
 
-Reviewed the Next.js page, global stylesheet, layout, package manifest, README, and storage/database references. No source changes were made as part of this review.
+Verified the findings against the current dashboard, API routes, database schema, README, and test setup. Updated the dashboard and review documentation. Validation: `npm test`, `npm run lint`, `npm run build`, and `git diff --check`.

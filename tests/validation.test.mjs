@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  getDailyHobbyQuery,
   getHobbyCheckinDate,
   getPeriodRange,
   isValidDate,
@@ -30,6 +31,11 @@ import {
   getSleepChartPoint,
   getSleepLineSegments,
 } from "../lib/sleep-chart.ts";
+import { getHobbyChartColors } from "../lib/hobby-chart.ts";
+import {
+  getMonthlyJournalSummary,
+  getSleepSummary,
+} from "../lib/monthly-summary.ts";
 
 test("validates real calendar dates", () => {
   assert.equal(isValidDate("2024-02-29"), true);
@@ -48,6 +54,77 @@ test("returns the selected day range", () => {
 test("uses the chart-selected date for hobby check-ins, falling back to the summary date", () => {
   assert.equal(getHobbyCheckinDate("2026-10-12", "2026-11-05"), "2026-10-12");
   assert.equal(getHobbyCheckinDate("", "2026-11-05"), "2026-11-05");
+});
+
+test("builds a day-only hobby query for the daily summary's selected date", () => {
+  const query = getDailyHobbyQuery("2026-11-05");
+  assert.deepEqual([...query.entries()], [
+    ["date", "2026-11-05"],
+    ["period", "day"],
+    ["referenceDate", "2026-11-05"],
+  ]);
+});
+
+test("assigns distinct pie-chart colors to every hobby", () => {
+  const colors = getHobbyChartColors(20);
+
+  assert.equal(colors.length, 20);
+  assert.equal(new Set(colors).size, colors.length);
+  assert.deepEqual(getHobbyChartColors(0), []);
+});
+
+test("summarizes average, lowest, and highest sleep for a month", () => {
+  assert.deepEqual(
+    getSleepSummary([
+      { hoursSlept: 4 },
+      { hoursSlept: 6 },
+      { hoursSlept: 8 },
+    ]),
+    { average: 6, lowest: 4, highest: 8 },
+  );
+  assert.equal(getSleepSummary([]), null);
+});
+
+test("counts entries and missed dates for a past month, including leap days", () => {
+  assert.deepEqual(
+    getMonthlyJournalSummary(
+      [
+        { date: "2024-01-31" },
+        { date: "2024-02-01" },
+        { date: "2024-02-29" },
+        { date: "2024-03-01" },
+      ],
+      "2024-02",
+      "2024-03-01",
+    ),
+    { entryCount: 2, missedDateCount: 27 },
+  );
+});
+
+test("counts missed dates only through today in the current month", () => {
+  assert.deepEqual(
+    getMonthlyJournalSummary(
+      [
+        { date: "2026-11-01" },
+        { date: "2026-11-16" },
+        { date: "2026-11-20" },
+      ],
+      "2026-11",
+      "2026-11-16",
+    ),
+    { entryCount: 3, missedDateCount: 14 },
+  );
+});
+
+test("does not mark future month dates as missed", () => {
+  assert.deepEqual(
+    getMonthlyJournalSummary(
+      [{ date: "2026-12-01" }],
+      "2026-12",
+      "2026-11-16",
+    ),
+    { entryCount: 1, missedDateCount: 0 },
+  );
 });
 
 test("validates sleep hours from 0 through 12 to two decimal places", () => {

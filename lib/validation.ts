@@ -16,6 +16,10 @@ export function getHobbyCheckinDate(chartDate: string, summaryDate: string) {
   return chartDate || summaryDate;
 }
 
+export function getDailyHobbyQuery(date: string) {
+  return new URLSearchParams({ date, period: "day", referenceDate: date });
+}
+
 export function getPeriodRange(period: string, referenceDate: string) {
   const [year, month, day] = referenceDate.split("-").map(Number);
   let start: Date;

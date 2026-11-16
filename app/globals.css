@@ -425,39 +425,76 @@ input[type="checkbox"] {
   font-size: 17px;
 }
 
-.daily-summary-list {
-  display: grid;
-  gap: 8px;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.daily-summary-list li {
-  display: grid;
-  gap: 6px;
-  padding: 10px 12px;
-  border-radius: 7px;
-  background: #fff;
-  color: #334155;
-  line-height: 1.5;
-}
-
-.daily-summary-status,
 .journal-status {
   margin: 10px 0 0;
   color: var(--muted);
 }
 
-.daily-summary-sleep {
+.monthly-summary-empty {
   margin: 0;
-  font-size: clamp(28px, 3vw, 36px);
-  font-weight: 700;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.monthly-summary-hobby-layout {
+  display: grid;
+  grid-template-columns: minmax(100px, 140px) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.monthly-summary-donut {
+  width: min(140px, 100%);
+}
+
+.monthly-summary-donut .hobby-chart-donut-center strong {
+  font-size: 20px;
+}
+
+.monthly-summary-donut .hobby-chart-donut-center span {
+  font-size: 9px;
+}
+
+.monthly-summary-hobby-legend {
+  gap: 6px;
+}
+
+.monthly-summary-hobby-legend li {
+  gap: 7px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.monthly-summary-stats {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.monthly-summary-stats div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.monthly-summary-stats dt {
+  color: var(--muted);
+}
+
+.monthly-summary-stats dd {
+  margin: 0;
   color: var(--foreground);
+  font-size: 20px;
+  font-weight: 700;
 }
 
 .hobbiesPie {
-  width: min(850px, calc(100vw - 40px));
+  min-width: 0;
+  width: 100%;
 }
 
 .hobbiesPie .card,
@@ -490,11 +527,6 @@ input[type="checkbox"] {
 .hobby-chart-total strong {
   font-size: 28px;
   color: var(--foreground);
-}
-
-.hobby-chart-filter-help {
-  margin: 8px 0 0;
-  color: var(--muted);
 }
 
 .manage-hobbies-button,
@@ -602,6 +634,10 @@ input[type="checkbox"] {
 .journal-card,
 .daily-score-card {
   min-width: 0;
+}
+
+.daily-score-card {
+  grid-column: 1 / -1;
 }
 
 .journal-form,
@@ -793,22 +829,23 @@ input[type="checkbox"] {
 
 .hobbies-dialog {
   position: fixed;
-  inset: auto 24px 24px auto;
-  width: min(560px, calc(100vw - 32px));
+  inset: 0;
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 24px));
+  max-height: min(80vh, 760px);
+  max-height: min(80dvh, 760px);
+  margin: auto;
+  padding: 0;
+  overflow-y: auto;
   border: 1px solid var(--card-border);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: var(--shadow);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(16px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.hobbies-dialog.open {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
+.hobbies-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(2px);
 }
 
 .hobbies-dialog-header {
@@ -943,5 +980,45 @@ input[type="checkbox"] {
 
   .hobbiesPie {
     width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .hobbies-dialog {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    border-radius: 14px;
+  }
+
+  .hobbies-dialog-header {
+    padding: 16px 16px 0;
+  }
+
+  .hobby-management-panel {
+    padding: 14px 16px 16px;
+  }
+
+  .hobby-input-row {
+    flex-wrap: wrap;
+  }
+
+  .hobby-input-row input {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+
+  .hobby-input-row button {
+    width: 100%;
+  }
+
+  .hobby-management-meta {
+    flex-wrap: wrap;
+  }
+
+  .hobby-management-meta span {
+    min-width: 0;
+    flex-basis: 100%;
+    overflow-wrap: anywhere;
   }
 }
