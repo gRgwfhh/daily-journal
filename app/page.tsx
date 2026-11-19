@@ -18,5 +18,3 @@ async function AuthenticatedDashboard() {
   }
   return <Dashboard username={user.username} avatarUrl={user.avatarUrl} />;
 }
-
-export const dynamic = 'force-dynamic';
