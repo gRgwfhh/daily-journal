@@ -1,6 +1,12 @@
 import { getDbPool, databaseErrorResponse } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getPeriodRange, isRecord, isValidDate } from "@/lib/validation";
+import {
+  getJournalDeleteQuery,
+  getJournalReadQuery,
+  getJournalUpsertQuery,
+  isJournalPeriod,
+} from "@/lib/journal-queries";
 import type { RowDataPacket } from "mysql2";
 
 type JournalRow = RowDataPacket & {
@@ -14,7 +20,7 @@ export async function GET(request: Request) {
   const period = searchParams.get("period") ?? "all";
   const date = searchParams.get("date");
 
-  if (!["day", "week", "month", "year", "all"].includes(period)) {
+  if (!isJournalPeriod(period)) {
     return Response.json({ error: "Unsupported journal period." }, { status: 400 });
   }
   if (period !== "all" && !isValidDate(date)) {
@@ -26,21 +32,9 @@ export async function GET(request: Request) {
     if (!user) {
       return Response.json({ error: "Authentication required." }, { status: 401 });
     }
-    let rows: JournalRow[];
-    if (period === "all") {
-      [rows] = await getDbPool().execute<JournalRow[]>(
-        "SELECT moment_date, moment, updated_at FROM memorable_moments WHERE user_id = ? ORDER BY moment_date DESC",
-        [user.id],
-      );
-    } else {
-      const { start, end } = getPeriodRange(period, date!);
-      [rows] = await getDbPool().execute<JournalRow[]>(
-        `SELECT moment_date, moment, updated_at FROM memorable_moments
-         WHERE user_id = ? AND moment_date >= ? AND moment_date < ?
-         ORDER BY moment_date DESC`,
-        [user.id, start, end],
-      );
-    }
+    const range = period === "all" ? undefined : getPeriodRange(period, date!);
+    const query = getJournalReadQuery(user.id, range);
+    const [rows] = await getDbPool().execute<JournalRow[]>(query.sql, query.values);
     return Response.json(
       rows.map((row) => ({
         date: row.moment_date,
@@ -79,11 +73,8 @@ export async function POST(request: Request) {
     if (!user) {
       return Response.json({ error: "Authentication required." }, { status: 401 });
     }
-    await getDbPool().execute(
-      `INSERT INTO memorable_moments (user_id, moment_date, moment) VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE moment = VALUES(moment)`,
-      [user.id, body.date, body.text.trim()],
-    );
+    const query = getJournalUpsertQuery(user.id, body.date, body.text.trim());
+    await getDbPool().execute(query.sql, query.values);
     return Response.json({ date: body.date, text: body.text.trim() });
   } catch (error) {
     return databaseErrorResponse(error);
@@ -101,10 +92,8 @@ export async function DELETE(request: Request) {
     if (!user) {
       return Response.json({ error: "Authentication required." }, { status: 401 });
     }
-    const [result] = await getDbPool().execute(
-      "DELETE FROM memorable_moments WHERE moment_date = ? AND user_id = ?",
-      [date, user.id],
-    );
+    const query = getJournalDeleteQuery(user.id, date);
+    const [result] = await getDbPool().execute(query.sql, query.values);
     const header = result as { affectedRows?: number };
     if (!header.affectedRows) {
       return Response.json({ error: "Journal entry not found." }, { status: 404 });

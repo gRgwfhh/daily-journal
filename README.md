@@ -53,7 +53,31 @@ npm run build
 
 ## Existing data
 
-The account migration preserves records from the earlier shared-data schema with no account assigned. They remain hidden from user accounts. Existing browser-local data also remains in localStorage and is not imported automatically.
+The account migration preserves records from the earlier shared-data schema with no account assigned. They remain hidden from user accounts. Older browser-local records are not imported automatically. They are stored per browser profile and app origin under `habit-dashboard-hobbies-v1` and `habit-dashboard-journal-v1`.
+
+To export a backup, open the app on the original origin, open the browser developer console, and evaluate:
+
+```js
+JSON.stringify(
+  Object.fromEntries(
+    ["habit-dashboard-hobbies-v1", "habit-dashboard-journal-v1"].map((key) => [
+      key,
+      localStorage.getItem(key),
+    ]),
+  ),
+  null,
+  2,
+)
+```
+
+Copy the returned JSON into a private file before clearing anything; it may contain personal journal text. To reset only this legacy browser data on the same origin, run:
+
+```js
+localStorage.removeItem("habit-dashboard-hobbies-v1");
+localStorage.removeItem("habit-dashboard-journal-v1");
+```
+
+This removes only those old browser-local copies. It does not delete database records, and clearing browser storage for a different origin or profile has no effect on them.
 
 ## Security
 

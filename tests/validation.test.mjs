@@ -8,6 +8,11 @@ import {
   isValidSleepHours,
 } from "../lib/validation.ts";
 import {
+  getJournalDeleteQuery,
+  getJournalReadQuery,
+  getJournalUpsertQuery,
+} from "../lib/journal-queries.ts";
+import {
   createSessionToken,
   createPasswordResetToken,
   getSessionToken,
@@ -189,6 +194,37 @@ test("handles month and year boundaries", () => {
     start: "2024-01-01",
     end: "2025-01-01",
   });
+});
+
+test("builds journal read queries for the selected date, week, month, and year", () => {
+  const cases = [
+    ["day", "2026-03-04", "2026-03-04", "2026-03-05"],
+    ["week", "2026-03-04", "2026-03-02", "2026-03-09"],
+    ["month", "2026-03-04", "2026-03-01", "2026-04-01"],
+    ["year", "2026-03-04", "2026-01-01", "2027-01-01"],
+  ];
+
+  for (const [period, date, start, end] of cases) {
+    const query = getJournalReadQuery(42, getPeriodRange(period, date));
+    assert.match(query.sql, /WHERE user_id = \? AND moment_date >= \? AND moment_date < \?/);
+    assert.match(query.sql, /ORDER BY moment_date DESC/);
+    assert.deepEqual(query.values, [42, start, end]);
+  }
+});
+
+test("builds user-scoped journal queries for all entries, saves, and deletes", () => {
+  assert.deepEqual(getJournalReadQuery(42), {
+    sql: "SELECT moment_date, moment, updated_at FROM memorable_moments WHERE user_id = ? ORDER BY moment_date DESC",
+    values: [42],
+  });
+
+  const save = getJournalUpsertQuery(42, "2026-03-04", "A memorable day");
+  assert.match(save.sql, /INSERT INTO memorable_moments .* ON DUPLICATE KEY UPDATE moment = VALUES\(moment\)/s);
+  assert.deepEqual(save.values, [42, "2026-03-04", "A memorable day"]);
+
+  const remove = getJournalDeleteQuery(42, "2026-03-04");
+  assert.match(remove.sql, /DELETE FROM memorable_moments WHERE moment_date = \? AND user_id = \?/);
+  assert.deepEqual(remove.values, ["2026-03-04", 42]);
 });
 
 test("normalizes usernames and email addresses and rejects invalid values", () => {
