@@ -7,11 +7,13 @@ import {
   isValidDate,
   isValidSleepHours,
 } from "../lib/validation.ts";
+import { getConfirmationContent } from "../lib/delete-confirmation.ts";
 import {
   getJournalDeleteQuery,
   getJournalReadQuery,
   getJournalUpsertQuery,
 } from "../lib/journal-queries.ts";
+import { getSleepDeleteQuery } from "../lib/sleep-queries.ts";
 import {
   createSessionToken,
   createPasswordResetToken,
@@ -47,6 +49,42 @@ test("validates real calendar dates", () => {
   assert.equal(isValidDate("2025-02-29"), false);
   assert.equal(isValidDate("2026-13-01"), false);
   assert.equal(isValidDate("2026-1-01"), false);
+});
+
+test("builds item-specific delete confirmation prompts", () => {
+  assert.deepEqual(getConfirmationContent({ kind: "hobby", name: "Reading" }), {
+    message: 'This action will delete "Reading" and all its check-ins. This cannot be undone.',
+    cancelLabel: "Keep Hobby",
+    confirmLabel: "Delete Hobby",
+  });
+  assert.deepEqual(
+    getConfirmationContent({ kind: "journal", date: "Wednesday, August 26, 2026" }),
+    {
+      message: "This action will delete your journal entry for Wednesday, August 26, 2026. This cannot be undone.",
+      cancelLabel: "Keep Entry",
+      confirmLabel: "Delete Entry",
+    },
+  );
+  assert.deepEqual(
+    getConfirmationContent({
+      kind: "sleep",
+      date: "Wednesday, August 26, 2026",
+      hours: 7.5,
+    }),
+    {
+      message: "This action will delete 7.5 hours of sleep for Wednesday, August 26, 2026. This cannot be undone.",
+      cancelLabel: "Keep Record",
+      confirmLabel: "Delete Record",
+    },
+  );
+});
+
+test("builds a sign-out confirmation prompt", () => {
+  assert.deepEqual(getConfirmationContent({ kind: "sign-out" }), {
+    message: "This action will sign you out of your account. You can sign back in at any time.",
+    cancelLabel: "Stay Signed In",
+    confirmLabel: "Sign Out",
+  });
 });
 
 test("returns the selected day range", () => {
@@ -225,6 +263,13 @@ test("builds user-scoped journal queries for all entries, saves, and deletes", (
   const remove = getJournalDeleteQuery(42, "2026-03-04");
   assert.match(remove.sql, /DELETE FROM memorable_moments WHERE moment_date = \? AND user_id = \?/);
   assert.deepEqual(remove.values, ["2026-03-04", 42]);
+});
+
+test("builds a user-scoped sleep record deletion query", () => {
+  assert.deepEqual(getSleepDeleteQuery(42, "2026-03-04"), {
+    sql: "DELETE FROM sleep_records WHERE user_id = ? AND sleep_date = ?",
+    values: [42, "2026-03-04"],
+  });
 });
 
 test("normalizes usernames and email addresses and rejects invalid values", () => {

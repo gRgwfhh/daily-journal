@@ -1,7 +1,8 @@
 import { getDbPool, databaseErrorResponse } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { isRecord, isValidDate, isValidSleepHours } from "@/lib/validation";
-import type { RowDataPacket } from "mysql2";
+import { getSleepDeleteQuery } from "@/lib/sleep-queries";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
 
 type SleepRow = RowDataPacket & {
   sleep_date: string;
@@ -76,6 +77,29 @@ export async function POST(request: Request) {
       date: body.date,
       hoursSlept: body.hoursSlept,
     });
+  } catch (error) {
+    return databaseErrorResponse(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  const date = new URL(request.url).searchParams.get("date");
+  if (!isValidDate(date)) {
+    return Response.json({ error: "A valid date is required." }, { status: 400 });
+  }
+
+  try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return Response.json({ error: "Authentication required." }, { status: 401 });
+    }
+
+    const query = getSleepDeleteQuery(user.id, date);
+    const [result] = await getDbPool().execute<ResultSetHeader>(query.sql, query.values);
+    if (result.affectedRows === 0) {
+      return Response.json({ error: "Sleep record not found." }, { status: 404 });
+    }
+    return new Response(null, { status: 204 });
   } catch (error) {
     return databaseErrorResponse(error);
   }

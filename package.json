@@ -11,11 +11,7 @@
   },
   "dependencies": {
     "mysql2": "^3.24.6",
-<<<<<<< HEAD
-    "next": "^16.4.6",
-=======
     "next": "16.4.6",
->>>>>>> 7b4f19075e0b0a6de94902225860a25d6189cb68
     "nodemailer": "^10.3.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
@@ -27,11 +23,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-<<<<<<< HEAD
-    "eslint-config-next": "^16.4.6",
-=======
     "eslint-config-next": "16.4.6",
->>>>>>> 7b4f19075e0b0a6de94902225860a25d6189cb68
     "tailwindcss": "^4",
     "typescript": "^5"
   }

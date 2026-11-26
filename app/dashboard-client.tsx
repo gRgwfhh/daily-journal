@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getHobbyChartColors } from "@/lib/hobby-chart";
+import { getConfirmationContent } from "@/lib/delete-confirmation";
 import { getMonthlyJournalSummary, getSleepSummary } from "@/lib/monthly-summary";
 import { getSleepChartPoint, getSleepLineSegments } from "@/lib/sleep-chart";
 import { getHobbyCheckinDate } from "@/lib/validation";
@@ -34,6 +35,12 @@ type SleepRecord = {
   date: string;
   hoursSlept: number;
 };
+
+type ConfirmationTarget =
+  | { kind: "hobby"; item: Hobby }
+  | { kind: "journal"; date: string }
+  | { kind: "sleep"; record: SleepRecord }
+  | { kind: "sign-out" };
 
 async function requestApi<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -129,6 +136,26 @@ function formatJournalDate(value: string) {
   );
 }
 
+function getConfirmationDialogContent(target: ConfirmationTarget) {
+  switch (target.kind) {
+    case "hobby":
+      return getConfirmationContent({ kind: "hobby", name: target.item.name });
+    case "journal":
+      return getConfirmationContent({
+        kind: "journal",
+        date: formatJournalDate(target.date),
+      });
+    case "sleep":
+      return getConfirmationContent({
+        kind: "sleep",
+        date: formatJournalDate(target.record.date),
+        hours: target.record.hoursSlept,
+      });
+    case "sign-out":
+      return getConfirmationContent({ kind: "sign-out" });
+  }
+}
+
 function isInJournalPeriod(entryDate: string, period: string, referenceDate: string) {
   if (period === "all") {
     return true;
@@ -163,7 +190,9 @@ export default function Home({
 }) {
   const router = useRouter();
   const hobbiesDialogRef = useRef<HTMLDialogElement>(null);
+  const confirmationDialogRef = useRef<HTMLDialogElement>(null);
   const hobbyNameInputRef = useRef<HTMLInputElement>(null);
+  const confirmationCancelButtonRef = useRef<HTMLButtonElement>(null);
   const manageHobbiesButtonRef = useRef<HTMLButtonElement>(null);
   const [hobbies, setHobbies] = useState<Hobby[]>([]);
   const [summaryHobbyData, setSummaryHobbyData] = useState<{
@@ -192,6 +221,7 @@ export default function Home({
   } | null>(null);
   const [newHobby, setNewHobby] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationTarget | null>(null);
   const [selectedSummaryMonth, setSelectedSummaryMonth] = useState("");
   const [hobbyChartDate, setHobbyChartDate] = useState("");
   const [hobbyStatus, setHobbyStatus] = useState("");
@@ -236,6 +266,20 @@ export default function Home({
       dialog.close();
     }
   }, [isDialogOpen]);
+
+  useEffect(() => {
+    const dialog = confirmationDialogRef.current;
+    if (!dialog) {
+      return;
+    }
+
+    if (pendingConfirmation && !dialog.open) {
+      dialog.showModal();
+      confirmationCancelButtonRef.current?.focus();
+    } else if (!pendingConfirmation && dialog.open) {
+      dialog.close();
+    }
+  }, [pendingConfirmation]);
 
   useEffect(() => {
     if (!todayDate) {
@@ -517,9 +561,9 @@ export default function Home({
     }
   };
 
-  const removeHobby = async (id: number) => {
+  const removeHobby = async (item: Hobby) => {
     try {
-      await requestApi(`/api/hobbies/${id}`, { method: "DELETE" });
+      await requestApi(`/api/hobbies/${item.id}`, { method: "DELETE" });
       setHobbyStatus("Hobby deleted.");
       refreshHobbies();
     } catch (error) {
@@ -583,6 +627,51 @@ export default function Home({
     }
   };
 
+  const deleteSleepRecord = async (record: SleepRecord) => {
+    try {
+      await requestApi(`/api/sleep?date=${encodeURIComponent(record.date)}`, { method: "DELETE" });
+      setSleepStatus("Sleep record deleted.");
+      setSleepRefresh((value) => value + 1);
+    } catch (error) {
+      setSleepStatus(
+        `Could not delete sleep record: ${error instanceof Error ? error.message : "Unknown error."}`,
+      );
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await requestApi("/api/auth/session", { method: "DELETE" });
+      router.replace("/login");
+    } catch (error) {
+      setHobbyStatus(
+        `Could not sign out: ${error instanceof Error ? error.message : "Unknown error."}`,
+      );
+    }
+  };
+
+  const confirmPendingAction = () => {
+    if (!pendingConfirmation) {
+      return;
+    }
+
+    setPendingConfirmation(null);
+    switch (pendingConfirmation.kind) {
+      case "hobby":
+        void removeHobby(pendingConfirmation.item);
+        break;
+      case "journal":
+        void deleteJournalEntry(pendingConfirmation.date);
+        break;
+      case "sleep":
+        void deleteSleepRecord(pendingConfirmation.record);
+        break;
+      case "sign-out":
+        void signOut();
+        break;
+    }
+  };
+
   const saveSleepRecord = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const hoursValue = Number(hoursSlept);
@@ -604,6 +693,10 @@ export default function Home({
       );
     }
   };
+
+  const confirmationDialogContent = pendingConfirmation
+    ? getConfirmationDialogContent(pendingConfirmation)
+    : null;
 
   return (
     <div className="dashboard-page">
@@ -631,16 +724,7 @@ export default function Home({
             <button
               className="sign-out-button"
               type="button"
-              onClick={async () => {
-                try {
-                  await requestApi("/api/auth/session", { method: "DELETE" });
-                  router.replace("/login");
-                } catch (error) {
-                  setHobbyStatus(
-                    `Could not sign out: ${error instanceof Error ? error.message : "Unknown error."}`,
-                  );
-                }
-              }}
+              onClick={() => setPendingConfirmation({ kind: "sign-out" })}
             >
               Sign out
             </button>
@@ -894,16 +978,22 @@ export default function Home({
                   <li key={entry.date} className="journal-entry">
                     <time dateTime={entry.date}>{formatJournalDate(entry.date)}</time>
                     <p>{entry.text}</p>
-                    <button type="button" className="journal-edit-button" onClick={() => editJournalEntry(entry)}>
-                      Edit entry
-                    </button>
-                    <button
-                      type="button"
-                      className="journal-delete-button"
-                      onClick={() => deleteJournalEntry(entry.date)}
-                    >
-                      Delete
-                    </button>
+                    <div className="journal-entry-actions">
+                      <button
+                        type="button"
+                        className="journal-edit-button"
+                        onClick={() => editJournalEntry(entry)}
+                      >
+                        Edit entry
+                      </button>
+                      <button
+                        type="button"
+                        className="journal-delete-button"
+                        onClick={() => setPendingConfirmation({ kind: "journal", date: entry.date })}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -1026,6 +1116,28 @@ export default function Home({
               })}
             </svg>
           </div>
+          {sleepRecords.length > 0 ? (
+            <ul className="sleep-record-list" aria-label="Saved sleep records">
+              {sleepRecords.map((record) => (
+                <li key={record.date} className="sleep-record-item">
+                  <span>
+                    <time dateTime={record.date}>{formatJournalDate(record.date)}</time>
+                    {` · ${record.hoursSlept} hours`}
+                  </span>
+                  <button
+                    type="button"
+                    className="delete-btn"
+                    aria-label={`Delete sleep record for ${record.date}`}
+                    onClick={() => setPendingConfirmation({ kind: "sleep", record })}
+                  >
+                    Delete
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="sleep-record-empty">No sleep records for this month.</p>
+          )}
         </section>
       </main>
 
@@ -1083,7 +1195,11 @@ export default function Home({
                       {item.checked ? `Checked in for ${hobbyCheckinDate}` : `Created · ${formatTimestamp(item.createdAt)}`}
                       {` · ${item.checkCount} checks in selected range · ${item.allTimeCount} total`}
                     </span>
-                    <button type="button" className="delete-btn" onClick={() => void removeHobby(item.id)}>
+                    <button
+                      type="button"
+                      className="delete-btn"
+                      onClick={() => setPendingConfirmation({ kind: "hobby", item })}
+                    >
                       Delete
                     </button>
                   </div>
@@ -1094,6 +1210,47 @@ export default function Home({
             )}
           </div>
         </div>
+      </dialog>
+
+      <dialog
+        ref={confirmationDialogRef}
+        className="delete-confirmation-dialog"
+        aria-labelledby="confirmationTitle"
+        aria-describedby="confirmationMessage"
+        onCancel={(event) => {
+          event.preventDefault();
+          setPendingConfirmation(null);
+        }}
+        onClose={() => setPendingConfirmation(null)}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            setPendingConfirmation(null);
+          }
+        }}
+      >
+        {confirmationDialogContent ? (
+          <>
+            <h2 id="confirmationTitle">Are you sure?</h2>
+            <p id="confirmationMessage">{confirmationDialogContent.message}</p>
+            <div className="delete-confirmation-actions">
+              <button
+                ref={confirmationCancelButtonRef}
+                type="button"
+                className="delete-confirmation-cancel"
+                onClick={() => setPendingConfirmation(null)}
+              >
+                {confirmationDialogContent.cancelLabel}
+              </button>
+              <button
+                type="button"
+                className="delete-confirmation-confirm"
+                onClick={confirmPendingAction}
+              >
+                {confirmationDialogContent.confirmLabel}
+              </button>
+            </div>
+          </>
+        ) : null}
       </dialog>
     </div>
   );
